@@ -2,7 +2,7 @@
 //
 // Bump CACHE_VERSION whenever the app shell changes. The old version's cache is
 // deleted on activate, so a stale index.html can never be served forever.
-const CACHE_VERSION = 'v7';
+const CACHE_VERSION = 'v8';
 const CACHE_NAME = `nebula-${CACHE_VERSION}`;
 
 // Static assets that are safe to cache first (they are content-hashed by name

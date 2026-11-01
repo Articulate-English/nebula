@@ -1630,6 +1630,29 @@ if (texturedFrames) document.body.classList.add('textured');
   if (overlapEnabled) document.body.classList.add('overlap');
   applyAnimation(bgAnimation, false);
 
+// ===== AUTOSAVE =====
+setInterval(() => { try { saveNotes(); } catch (e) {} }, 5 * 60 * 1000);
+window.addEventListener('beforeunload', () => { try { saveNotes(); } catch (e) {} });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { try { saveNotes(); } catch (e) {} } });
+
+// ===== CLICKABLE LINKS IN NOTES =====
+const URL_RE = /(https?:\/\/[^\s<>"']+)/g;
+document.addEventListener('click', (e) => {
+  const ta = e.target.closest && e.target.closest('textarea.note-body, textarea.html-input');
+  if (!ta || !(e.ctrlKey || e.metaKey)) return;
+  const pos = ta.selectionStart;
+  const val = ta.value || '';
+  // find url containing pos
+  let m;
+  URL_RE.lastIndex = 0;
+  while ((m = URL_RE.exec(val)) !== null) {
+    if (pos >= m.index && pos <= m.index + m[0].length) {
+      window.open(m[0], '_blank', 'noopener');
+      break;
+    }
+  }
+});
+
 function saveNotes() {
   localStorage.setItem('nebula', JSON.stringify(notes));
   saveBoard();
