@@ -1061,6 +1061,8 @@ updateOfflineStatus();
 const canvas = document.getElementById('starfield');
 const ctx = canvas.getContext('2d');
 let stars = [];
+let shootingStars = [];
+let frameCount = 0;
 function resizeCanvas() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
@@ -1096,6 +1098,36 @@ function drawStars(time) {
     ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
     ctx.fillStyle = `rgba(${s.color}, ${s.brightness * twinkle})`;
     ctx.fill();
+  }
+  // shooting stars
+  frameCount++;
+  if (frameCount % 180 === 0) {
+    shootingStars.push({
+      x: Math.random() * canvas.width * 0.8,
+      y: Math.random() * canvas.height * 0.4,
+      len: Math.random() * 120 + 60,
+      speed: Math.random() * 6 + 8,
+      angle: Math.PI / 5 + (Math.random() - 0.5) * 0.4,
+      life: 0,
+      maxLife: 50
+    });
+  }
+  for (let i = shootingStars.length - 1; i >= 0; i--) {
+    const sh = shootingStars[i];
+    sh.x += Math.cos(sh.angle) * sh.speed;
+    sh.y += Math.sin(sh.angle) * sh.speed;
+    sh.life++;
+    const alpha = 1 - sh.life / sh.maxLife;
+    const grad = ctx.createLinearGradient(sh.x, sh.y, sh.x - Math.cos(sh.angle)*sh.len, sh.y - Math.sin(sh.angle)*sh.len);
+    grad.addColorStop(0, `rgba(255,255,255,${alpha})`);
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(sh.x, sh.y);
+    ctx.lineTo(sh.x - Math.cos(sh.angle)*sh.len, sh.y - Math.sin(sh.angle)*sh.len);
+    ctx.stroke();
+    if (sh.life >= sh.maxLife) shootingStars.splice(i, 1);
   }
   requestAnimationFrame(drawStars);
 }
