@@ -70,9 +70,21 @@
       if (pushing) return;
       try {
         if (yNotes.size) {
-          const arr = [];
-          yNotes.forEach((v) => { try { arr.push(JSON.parse(v)); } catch (e) {} });
-          if (arr.length) { notes = arr; }
+          const shared = [];
+          yNotes.forEach((v) => { try { shared.push(JSON.parse(v)); } catch (e) {} });
+          // merge: replace shared notes, keep private ones
+          const privateNotes = (notes || []).filter((n) => !n.shared);
+          // update shared notes that changed
+          const byId = {};
+          (notes || []).forEach((n) => { byId[n.id] = n; });
+          shared.forEach((s) => {
+            normalizeNote(s);
+            byId[s.id] = s;
+          });
+          notes = privateNotes.concat(shared.filter((s) => !privateNotes.find((p) => p.id === s.id)));
+          // rebuild unique
+          const seen = new Set();
+          notes = notes.filter((n) => (seen.has(n.id) ? false : (seen.add(n.id), true)));
         }
         const b = yBoard.get('state');
         if (b) {
@@ -91,9 +103,8 @@
     try {
       const ymap = ydoc.getMap('notes');
       ydoc.transact(() => {
-        // replace all
         Array.from(ymap.keys()).forEach((k) => ymap.delete(k));
-        (notes || []).forEach((n) => { ymap.set(String(n.id), JSON.stringify(n)); });
+        (notes || []).filter((n) => n.shared).forEach((n) => { ymap.set(String(n.id), JSON.stringify(n)); });
         ydoc.getMap('board').set('state', JSON.stringify(board));
       });
     } catch (e) { console.error('push err', e); }

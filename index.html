@@ -1503,6 +1503,7 @@ function normalizeNote(note) {
   if (n.due == null) n.due = null;
   else if (isNaN(new Date(n.due).getTime())) n.due = null;
   if (n.listId == null) n.listId = null;
+  if (typeof n.shared !== 'boolean') n.shared = false;
   return n;
 }
 
@@ -1687,7 +1688,7 @@ function addNote() {
     color: currentTheme,
     created: Date.now(),
     updated: Date.now(),
-    labels: [], due: null, checklist: [],
+    labels: [], due: null, checklist: [], shared: false,
     _x: 20 + (notes.length % 5) * 30,
     _y: 20 + (notes.length % 5) * 30
   };
@@ -1749,6 +1750,16 @@ function updateNoteTitle(id, title) {
     if (changed) recordActivity('Renamed to "' + (title || 'Untitled note') + '"', id);
     saveNotes();
   }
+}
+
+function toggleShare(id) {
+  const note = notes.find(n => n.id === id);
+  if (!note) return;
+  note.shared = !note.shared;
+  note.updated = Date.now();
+  recordActivity((note.shared ? 'Shared' : 'Unshared') + ' "' + (note.title || 'Untitled note') + '"', id);
+  saveNotes();
+  renderNotes();
 }
 
 // Grow the note box to fit its content (never less than 140px), and flag
@@ -2020,6 +2031,7 @@ function renderNotes() {
       <div class="note-header">
         <input type="text" class="note-title" value="${escapeHtml(note.title)}" placeholder="Note title..." onchange="updateNoteTitle(${note.id}, this.value)">
         <div class="note-actions">
+          <button class="note-btn" title="Toggle share" onclick="event.stopPropagation(); toggleShare(${note.id})">${note.shared ? '🌐' : '🔒'}</button>
           <button class="note-btn" title="HTML mode" onclick="event.stopPropagation(); toggleHtmlMode(${note.id})">${note.htmlMode ? 'TXT' : 'HTML'}</button>
           <button class="note-btn" title="Fullscreen" onclick="event.stopPropagation(); toggleFullscreen(${note.id})">⛶</button>
           <button class="note-btn" title="Duplicate" onclick="event.stopPropagation(); duplicateNote(${note.id})">⧉</button>
@@ -2197,7 +2209,7 @@ document.addEventListener('keydown', (e) => {
   }
   if (isCtrl && e.key === 'v' && clipboardNote != null && !inInput) {
     e.preventDefault();
-    const newNote = { id: noteIdCounter++, title: clipboardNote.title, tabs: JSON.parse(JSON.stringify(clipboardNote.tabs)), activeTab: 0, color: clipboardNote.color, created: Date.now(), updated: Date.now(), labels: [], due: null, checklist: [] };
+    const newNote = { id: noteIdCounter++, title: clipboardNote.title, tabs: JSON.parse(JSON.stringify(clipboardNote.tabs)), activeTab: 0, color: clipboardNote.color, created: Date.now(), updated: Date.now(), labels: [], due: null, checklist: [], shared: !!clipboardNote.shared };
     notes.unshift(newNote);
     newNote.listId = board.lists[0].id;
     board.lists[0].cardIds.unshift(newNote.id);
@@ -2449,7 +2461,7 @@ function addCardUi(listId) {
       id: noteIdCounter++, title: title,
       tabs: [{ title: 'Main', body: '' }], activeTab: 0,
       color: currentTheme, created: Date.now(), updated: Date.now(),
-      labels: [], due: null, checklist: []
+      labels: [], due: null, checklist: [], shared: false
     };
     notes.unshift(note);
     moveCard(note.id, listId, 0);

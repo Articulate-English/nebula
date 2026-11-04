@@ -5,9 +5,15 @@ import { NebulaRoom } from './room.js';
 
 const app = new Hono();
 
+const ALLOWED_ORIGINS = ['https://articulate-english.github.io', 'http://localhost:8000', 'http://127.0.0.1:8000'];
+function corsOrigin(req) {
+  const o = req.header('Origin') || '';
+  return ALLOWED_ORIGINS.includes(o) ? o : ALLOWED_ORIGINS[0];
+}
 for (const p of ['/sync/*', '/auth/*', '/rooms/*', '/invites/*']) {
   app.use(p, async (c, next) => {
-    c.res.headers.set('Access-Control-Allow-Origin', c.req.header('Origin') || '*');
+    c.res.headers.set('Access-Control-Allow-Origin', corsOrigin(c.req));
+    c.res.headers.set('Vary', 'Origin');
     c.res.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     if (c.req.method === 'OPTIONS') {
       c.res.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
