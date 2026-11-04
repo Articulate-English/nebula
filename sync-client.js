@@ -115,7 +115,7 @@
   function injectUI() {
     // Login button in header area (append to body as floating)
     const bar = document.createElement('div');
-    bar.style.cssText = 'position:fixed;top:8px;right:8px;z-index:9999;display:flex;gap:6px;align-items:center;font-family:sans-serif;font-size:12px;';
+    bar.style.cssText = 'position:fixed;top:64px;right:12px;z-index:9999;display:flex;gap:6px;align-items:center;font-family:sans-serif;font-size:12px;';
     bar.innerHTML = '<span id="nebula-user" style="color:#fff;opacity:.7"></span>' +
       '<button id="nebula-auth-btn" style="padding:4px 8px;border-radius:6px;border:1px solid #444;background:#1a1a2e;color:#fff;cursor:pointer">Sign in</button>' +
       '<button id="nebula-room-btn" style="padding:4px 8px;border-radius:6px;border:1px solid #444;background:#1a1a2e;color:#fff;cursor:pointer;display:none">Rooms</button>';
@@ -139,7 +139,7 @@
 
     const roomPanel = document.createElement('div');
     roomPanel.id = 'nebula-room-panel';
-    roomPanel.style.cssText = 'position:fixed;top:40px;right:8px;z-index:9999;background:#1a1a2e;color:#fff;padding:12px;border-radius:10px;width:300px;display:none;font-size:12px;';
+    roomPanel.style.cssText = 'position:fixed;top:104px;right:8px;z-index:9999;background:#1a1a2e;color:#fff;padding:12px;border-radius:10px;width:300px;display:none;font-size:12px;';
     roomPanel.innerHTML = '<h4 style="margin:0 0 8px">Shared Rooms</h4>' +
       '<div id="nr-list"></div>' +
       '<button id="nr-create" style="margin-top:8px;padding:4px 8px;border-radius:6px;border:none;background:#00b894;color:#fff;cursor:pointer">+ New room</button>' +
