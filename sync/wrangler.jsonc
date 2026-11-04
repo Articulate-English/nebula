@@ -1,0 +1,31 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "nebula-sync",
+  "main": "src/index.js",
+  "compatibility_date": "2026-04-07",
+  "workers_dev": true,
+
+  "durable_objects": {
+    "bindings": [
+      { "name": "Y_DURABLE_OBJECTS", "class_name": "NebulaRoom" }
+    ]
+  },
+
+  "d1_databases": [
+    {
+      "binding": "nebula_db",
+      "database_name": "nebula-db",
+      "database_id": "a9930c34-559d-4eee-92cc-2b712332a95c"
+    }
+  ],
+
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["NebulaRoom"] }
+  ],
+
+  "observability": { "enabled": true },
+
+  "vars": {
+    "IDLE_DELETE_DAYS": "30"
+  }
+}

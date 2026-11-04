@@ -1,0 +1,25 @@
+{
+  "name": "nebula-sync",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Realtime two-way sync for Nebula (Cloudflare Durable Objects + Yjs)",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "types": "wrangler types",
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "hono": "^4.13.0",
+    "lib0": "^0.2.119",
+    "ws": "^8.22.0",
+    "y-durableobjects": "^1.0.5",
+    "y-protocols": "^1.0.7",
+    "y-websocket": "^3.1.0",
+    "yjs": "^13.6.33"
+  },
+  "devDependencies": {
+    "wrangler": "^4.123.0"
+  }
+}
