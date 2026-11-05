@@ -113,14 +113,30 @@
 
   // ---------- UI injection ----------
   function injectUI() {
-    // Login button in header area (append to body as floating)
-    const bar = document.createElement('div');
-    bar.style.cssText = 'position:fixed;top:64px;right:12px;z-index:9999;display:flex;gap:6px;align-items:center;font-family:sans-serif;font-size:12px;';
-    bar.innerHTML = '<span id="nebula-user" style="color:#fff;opacity:.7"></span>' +
-      '<button id="nebula-auth-btn" style="padding:4px 8px;border-radius:6px;border:1px solid #444;background:#1a1a2e;color:#fff;cursor:pointer">Sign in</button>' +
-      '<button id="nebula-room-btn" style="padding:4px 8px;border-radius:6px;border:1px solid #444;background:#1a1a2e;color:#fff;cursor:pointer;display:none">Rooms</button>';
-    document.body.appendChild(bar);
+    // Inject Sign in / Rooms buttons into the existing header top bar
+    const right = document.querySelector('.header-right');
+    if (!right) { console.warn('header-right not found'); return; }
+    const userSpan = document.createElement('span');
+    userSpan.id = 'nebula-user';
+    userSpan.style.cssText = 'color:#fff;opacity:.7;font-size:12px;margin-right:4px;';
+    right.insertBefore(userSpan, right.firstChild);
 
+    const authBtn = document.createElement('button');
+    authBtn.id = 'nebula-auth-btn';
+    authBtn.className = 'header-btn';
+    authBtn.title = 'Sign in';
+    authBtn.textContent = '🔑';
+    right.insertBefore(authBtn, right.firstChild);
+
+    const roomBtn = document.createElement('button');
+    roomBtn.id = 'nebula-room-btn';
+    roomBtn.className = 'header-btn';
+    roomBtn.title = 'Rooms';
+    roomBtn.textContent = '👥';
+    roomBtn.style.display = 'none';
+    right.insertBefore(roomBtn, right.firstChild);
+
+    // modal + panel (unchanged positions)
     const modal = document.createElement('div');
     modal.id = 'nebula-auth-modal';
     modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:10000;display:none;align-items:center;justify-content:center;';
