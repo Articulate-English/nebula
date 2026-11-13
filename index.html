@@ -509,6 +509,20 @@
     transition: all 0.2s;
   }
   .card-move-btn:hover { background: rgba(155,89,255,0.2); color: var(--text-primary); }
+  .card-del-btn {
+    font-size: 12px;
+    padding: 6px 10px;
+    min-height: 32px;
+    background: rgba(255,80,80,0.08);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .card-del-btn:hover { background: rgba(255,80,80,0.18); color: #ff8080; }
+  .toolbar-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .toolbar-btn:disabled:hover { background: rgba(155,89,255,0.1); border-color: rgba(155,89,255,0.2); box-shadow: none; transform: none; }
 
   .list-add {
     margin: 0 10px 10px;
@@ -853,6 +867,14 @@
       <span>⬆</span> Import
     </button>
     <input type="file" id="importFile" accept=".json" style="display:none" onchange="importNotes(event)">
+    <div class="toolbar-divider"></div>
+    <div class="toolbar-divider"></div>
+    <button class="toolbar-btn" id="undoBtn" onclick="undo()" disabled title="Nothing to undo">
+      <span>↶</span> Undo
+    </button>
+    <button class="toolbar-btn" id="redoBtn" onclick="redo()" disabled title="Nothing to redo">
+      <span>↷</span> Redo
+    </button>
     <div class="toolbar-divider"></div>
     <button class="toolbar-btn danger" onclick="showClearAllModal()" title="Clear all notes">
       <span>✕</span> Clear All
@@ -1632,6 +1654,7 @@ function loadBoard() {
 let board = migrateBoard(loadBoard());
 
 function saveBoard() {
+  recordHistory();
   localStorage.setItem(BOARD_KEY, JSON.stringify(board));
 }
 
@@ -1664,7 +1687,101 @@ document.addEventListener('click', (e) => {
   }
 });
 
+// ===== UNDO / REDO (session-only snapshot history) =====
+// Snapshots are full {notes, board} states captured before each change. History is
+// deliberately NOT persisted: it starts empty on every load, so only the present
+// state survives a reload (the same rule the rest of the app follows).
+const HISTORY_LIMIT = 50;
+let undoStack = [];
+let redoStack = [];
+let lastSavedSnapshot = null;   // state as of the last save = the "before" of the next change
+let editBaseline = null;        // snapshot taken when an editable gains focus
+let editDebounce = null;
+
+function currentStateSnapshot() { return JSON.stringify({ notes: notes, board: board }); }
+
+function updateHistoryButtons() {
+  const u = document.getElementById('undoBtn');
+  const r = document.getElementById('redoBtn');
+  if (u) { u.disabled = undoStack.length === 0; u.title = undoStack.length ? ('Undo (' + undoStack.length + ')') : 'Nothing to undo'; }
+  if (r) { r.disabled = redoStack.length === 0; r.title = redoStack.length ? ('Redo (' + redoStack.length + ')') : 'Nothing to redo'; }
+}
+
+function pushSnapshot(snap) {
+  undoStack.push(snap);
+  if (undoStack.length > HISTORY_LIMIT) undoStack.shift();
+  redoStack = [];
+  updateHistoryButtons();
+}
+
+// Called from saveNotes/saveBoard: records the state BEFORE the change that triggered
+// the save, so one save == one undo step. Typing bursts are coalesced separately.
+function recordHistory() {
+  if (editBaseline !== null) return;
+  const snap = currentStateSnapshot();
+  if (lastSavedSnapshot === null) { lastSavedSnapshot = snap; return; }
+  if (snap !== lastSavedSnapshot) pushSnapshot(lastSavedSnapshot);
+  lastSavedSnapshot = snap;
+}
+
+function restoreSnapshot(snap) {
+  try {
+    const d = JSON.parse(snap);
+    notes = d.notes;
+    board = d.board;
+    editBaseline = null;
+    clearTimeout(editDebounce);
+    lastSavedSnapshot = currentStateSnapshot();
+    saveNotes();
+    saveBoard();
+    renderNotes();
+    renderBoard();
+    updateHistoryButtons();
+  } catch (e) { console.error('restore failed', e); }
+}
+
+function undo() {
+  if (!undoStack.length) return;
+  redoStack.push(currentStateSnapshot());
+  restoreSnapshot(undoStack.pop());
+  showToast('↶ Undone');
+}
+
+function redo() {
+  if (!redoStack.length) return;
+  undoStack.push(currentStateSnapshot());
+  restoreSnapshot(redoStack.pop());
+  showToast('↷ Redone');
+}
+
+// Typing: one undo step per editing burst, not per keystroke.
+function commitEditBaseline() {
+  if (editBaseline === null) return;
+  const snap = editBaseline;
+  editBaseline = null;
+  clearTimeout(editDebounce);
+  if (currentStateSnapshot() !== snap) pushSnapshot(snap);
+  lastSavedSnapshot = currentStateSnapshot();
+}
+document.addEventListener('focusin', (e) => {
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) {
+    if (editBaseline === null) editBaseline = currentStateSnapshot();
+  }
+});
+document.addEventListener('input', () => {
+  if (editBaseline === null) return;
+  clearTimeout(editDebounce);
+  editDebounce = setTimeout(commitEditBaseline, 800);
+});
+document.addEventListener('focusout', () => commitEditBaseline());
+
+// Seed the baseline with the loaded state so the FIRST change after a reload is
+// undoable too (without this, the first save would just set the baseline).
+lastSavedSnapshot = currentStateSnapshot();
+
 function saveNotes() {
+  recordHistory();
   localStorage.setItem('nebula', JSON.stringify(notes));
   saveBoard();
   updateNoteCount();
@@ -1720,6 +1837,14 @@ function deleteNote(id) {
   saveNotes();
   renderNotes();
   renderBoard();
+}
+
+function deleteCard(id) {
+  const note = notes.find(n => n.id === id);
+  if (!note) return;
+  commitEditBaseline();
+  deleteNote(id);
+  showToast('✦ Card deleted — Ctrl+Z to undo');
 }
 
 function duplicateNote(id) {
@@ -2091,7 +2216,7 @@ function escapeHtml(text) {
 }
 
 function confirmDelete(id) {
-  showModal('Delete note?', 'This cannot be undone.', () => { deleteNote(id); closeModal(); });
+  showModal('Delete note?', 'You can undo this with Ctrl+Z.', () => { deleteNote(id); closeModal(); });
 }
 
 function showClearAllModal() {
@@ -2199,6 +2324,8 @@ function showToast(message) {
 // ===== KEYBOARD =====
 document.addEventListener('keydown', (e) => {
   const isCtrl = e.ctrlKey || e.metaKey;
+  if (isCtrl && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
+  if (isCtrl && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo(); return; }
   const activeEl = document.activeElement;
   const noteCard = activeEl ? activeEl.closest('.note-card') : null;
   const noteId = noteCard ? parseInt(noteCard.dataset.id) : null;
@@ -2329,6 +2456,7 @@ function buildBoardCard(note) {
     ${checkHtml}
     <div class="card-move">
       <button class="card-move-btn" onclick="event.stopPropagation(); moveCardPrompt(${note.id})">Move ▸</button>
+      <button class="card-del-btn" title="Delete card" onclick="event.stopPropagation(); deleteCard(${note.id})">✕</button>
     </div>
   `;
 
