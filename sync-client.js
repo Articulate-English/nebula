@@ -12,6 +12,15 @@
   function clearAuth() { localStorage.removeItem(tokenKey); localStorage.removeItem(userKey); localStorage.removeItem(roomKey); }
   function getUser() { try { return JSON.parse(localStorage.getItem(userKey) || 'null'); } catch (e) { return null; } }
 
+  // ---------- sign-in panel state (anchored to the top bar) ----------
+  function syncAuthAria() {
+    const b = $('nebula-auth-btn'), p = $('nebula-auth-panel');
+    if (b && p) b.setAttribute('aria-expanded', p.classList.contains('open') ? 'true' : 'false');
+  }
+  function openAuthPanel() { const p = $('nebula-auth-panel'); if (p) p.classList.add('open'); syncAuthAria(); }
+  function closeAuthPanel() { const p = $('nebula-auth-panel'); if (p) p.classList.remove('open'); syncAuthAria(); }
+  function toggleAuthPanel() { const p = $('nebula-auth-panel'); if (p) p.classList.toggle('open'); syncAuthAria(); }
+
   async function api(path, opts) {
     opts = opts || {};
     const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
@@ -126,6 +135,9 @@
     authBtn.className = 'header-btn';
     authBtn.title = 'Sign in';
     authBtn.textContent = '🔑';
+    authBtn.setAttribute('aria-haspopup', 'true');
+    authBtn.setAttribute('aria-controls', 'nebula-auth-panel');
+    authBtn.setAttribute('aria-expanded', 'false');
     right.insertBefore(authBtn, right.firstChild);
 
     const roomBtn = document.createElement('button');
@@ -136,22 +148,45 @@
     roomBtn.style.display = 'none';
     right.insertBefore(roomBtn, right.firstChild);
 
-    // modal + panel (unchanged positions)
-    const modal = document.createElement('div');
-    modal.id = 'nebula-auth-modal';
-    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:10000;display:none;align-items:center;justify-content:center;';
-    modal.innerHTML = '<div style="background:#1a1a2e;color:#fff;padding:20px;border-radius:10px;width:320px;max-width:90vw;">' +
-      '<h3 style="margin:0 0 12px">Nebula Account</h3>' +
-      '<input id="na-email" placeholder="email" style="width:100%;margin:4px 0;padding:6px;box-sizing:border-box">' +
-      '<input id="na-pass" type="password" placeholder="password (>=6)" style="width:100%;margin:4px 0;padding:6px;box-sizing:border-box">' +
-      '<div style="display:flex;gap:6px;margin-top:10px">' +
-      '<button id="na-login" style="flex:1;padding:6px;border-radius:6px;border:none;background:#6c5ce7;color:#fff;cursor:pointer">Log in</button>' +
-      '<button id="na-reg" style="flex:1;padding:6px;border-radius:6px;border:none;background:#00b894;color:#fff;cursor:pointer">Register</button>' +
+    // Sign-in panel — anchored to the top bar (not a full-screen modal)
+    const style = document.createElement('style');
+    style.id = 'nebula-auth-panel-style';
+    style.textContent = [
+      '#nebula-auth-panel{position:absolute;top:calc(100% + 10px);right:0;width:300px;max-width:calc(100vw - 32px);',
+      'background:var(--glass-bg);color:var(--text-primary);border:1px solid var(--glass-border);border-radius:14px;',
+      'padding:14px;z-index:10000;box-shadow:var(--glow-purple);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);',
+      'font-size:13px;display:none;}',
+      '#nebula-auth-panel.open{display:block;}',
+      '#nebula-auth-panel h3{margin:0 0 10px;font-size:14px;font-weight:600;}',
+      '#nebula-auth-panel input{width:100%;margin:4px 0;padding:8px;box-sizing:border-box;background:rgba(0,0,0,.28);',
+      'border:1px solid var(--glass-border);border-radius:8px;color:var(--text-primary);font-size:14px;font-family:inherit;}',
+      '#nebula-auth-panel input:focus{outline:none;border-color:var(--nebula-purple);box-shadow:0 0 0 2px rgba(155,89,255,.25);}',
+      '#nebula-auth-panel .na-row{display:flex;gap:6px;margin-top:10px;}',
+      '#nebula-auth-panel .na-btn{flex:1;padding:7px;border-radius:8px;border:none;color:#fff;cursor:pointer;font-size:13px;font-family:inherit;}',
+      '#nebula-auth-panel .na-login{background:#6c5ce7;}',
+      '#nebula-auth-panel .na-login:hover{background:#7d6df0;}',
+      '#nebula-auth-panel .na-reg{background:#00b894;}',
+      '#nebula-auth-panel .na-reg:hover{background:#00d2a0;}',
+      '#nebula-auth-panel .na-close{margin-top:8px;width:100%;padding:7px;border-radius:8px;border:1px solid var(--glass-border);',
+      'background:transparent;color:var(--text-primary);cursor:pointer;font-size:13px;font-family:inherit;}',
+      '#nebula-auth-panel .na-msg{margin-top:8px;font-size:12px;color:#ff7675;}',
+    ].join('');
+    document.head.appendChild(style);
+
+    const authPanel = document.createElement('div');
+    authPanel.id = 'nebula-auth-panel';
+    authPanel.setAttribute('role', 'dialog');
+    authPanel.setAttribute('aria-label', 'Nebula account');
+    authPanel.innerHTML = '<h3>Nebula Account</h3>' +
+      '<input id="na-email" type="email" placeholder="email" aria-label="email" autocomplete="email">' +
+      '<input id="na-pass" type="password" placeholder="password (min 6)" aria-label="password" autocomplete="current-password">' +
+      '<div class="na-row">' +
+      '<button id="na-login" class="na-btn na-login">Log in</button>' +
+      '<button id="na-reg" class="na-btn na-reg">Register</button>' +
       '</div>' +
-      '<button id="na-close" style="margin-top:8px;width:100%;padding:6px;border-radius:6px;border:1px solid #444;background:transparent;color:#fff;cursor:pointer">Close</button>' +
-      '<div id="na-msg" style="margin-top:8px;font-size:12px;color:#ff7675"></div>' +
-      '</div>';
-    document.body.appendChild(modal);
+      '<button id="na-close" class="na-close">Close</button>' +
+      '<div id="na-msg" class="na-msg" role="alert"></div>';
+    document.querySelector('.header').appendChild(authPanel);
 
     const roomPanel = document.createElement('div');
     roomPanel.id = 'nebula-room-panel';
@@ -164,20 +199,31 @@
     document.body.appendChild(roomPanel);
 
     // wire
-    $('nebula-auth-btn').onclick = () => { modal.style.display = 'flex'; };
-    $('na-close').onclick = () => { modal.style.display = 'none'; };
+    $('nebula-auth-btn').onclick = () => { toggleAuthPanel(); };
+    $('na-close').onclick = () => { closeAuthPanel(); };
     $('na-login').onclick = async () => {
       try {
         const d = await api('/auth/login', { method: 'POST', body: JSON.stringify({ email: $('na-email').value, password: $('na-pass').value }) });
-        setAuth(d.token, d.user); modal.style.display = 'none'; refreshAuthUI();
+        setAuth(d.token, d.user); closeAuthPanel(); refreshAuthUI();
       } catch (e) { $('na-msg').textContent = e.message; }
     };
     $('na-reg').onclick = async () => {
       try {
         const d = await api('/auth/register', { method: 'POST', body: JSON.stringify({ email: $('na-email').value, password: $('na-pass').value }) });
-        setAuth(d.token, d.user); modal.style.display = 'none'; refreshAuthUI();
+        setAuth(d.token, d.user); closeAuthPanel(); refreshAuthUI();
       } catch (e) { $('na-msg').textContent = e.message; }
     };
+    // dismissal paths: outside click + Escape (APG disclosure pattern)
+    document.addEventListener('click', (e) => {
+      const p = $('nebula-auth-panel');
+      if (!p || !p.classList.contains('open')) return;
+      if (p.contains(e.target)) return;
+      if (e.target.closest && e.target.closest('#nebula-auth-btn')) return;
+      closeAuthPanel();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeAuthPanel();
+    });
     $('nebula-room-btn').onclick = () => { roomPanel.style.display = roomPanel.style.display === 'none' ? 'block' : 'none'; loadRooms(); };
     $('nr-create').onclick = async () => {
       const name = prompt('Room name?', 'Shared Board') || 'Shared Board';
@@ -241,7 +287,7 @@
     const rbtn = $('nebula-room-btn');
     if (u && getToken()) {
       if (user) user.textContent = u.email;
-      if (btn) { btn.textContent = 'Sign out'; btn.onclick = () => { clearAuth(); location.reload(); }; }
+      if (btn) { btn.textContent = 'Sign out'; btn.setAttribute('aria-expanded', 'false'); btn.onclick = () => { clearAuth(); location.reload(); }; }
       if (rbtn) rbtn.style.display = 'inline-block';
       // auto-accept invite from URL
       const params = new URLSearchParams(location.search);
@@ -258,7 +304,7 @@
       if (rid) bindRoom2(rid);
     } else {
       if (user) user.textContent = '';
-      if (btn) { btn.textContent = 'Sign in'; btn.onclick = () => { $('nebula-auth-modal').style.display = 'flex'; }; }
+      if (btn) { btn.textContent = 'Sign in'; btn.onclick = () => { openAuthPanel(); }; }
       if (rbtn) rbtn.style.display = 'none';
     }
   }

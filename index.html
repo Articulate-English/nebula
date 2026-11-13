@@ -78,7 +78,7 @@
 
   .app-container { position: relative; z-index: 10; display: flex; flex-direction: column; height: 100vh; padding: 16px; gap: 12px; }
 
-  .header { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 16px; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); box-shadow: var(--glow-purple); flex-shrink: 0; }
+  .header { position: relative; display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 16px; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); box-shadow: var(--glow-purple); flex-shrink: 0; }
   .header-left { display: flex; align-items: center; gap: 12px; }
   .logo { font-size: 24px; filter: drop-shadow(0 0 8px rgba(155, 89, 255, 0.6)); animation: logo-pulse 3s ease-in-out infinite; }
   @keyframes logo-pulse { 0%,100% { filter: drop-shadow(0 0 8px rgba(155, 89, 255, 0.6)); } 50% { filter: drop-shadow(0 0 16px rgba(155, 89, 255, 0.9)); } }
