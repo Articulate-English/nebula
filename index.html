@@ -1456,8 +1456,8 @@ if (localStorage.getItem('nebula') === null && localStorage.getItem('nebula-note
 try {
   notes = JSON.parse(localStorage.getItem('nebula') || '[]');
   notes.forEach(n => {
-    if (!n.tabs && n.body != null) {
-      n.tabs = [{ title: 'Main', body: n.body || '' }];
+    if (!Array.isArray(n.tabs) || !n.tabs.length) {
+      n.tabs = [{ title: 'Main', body: n.body != null ? (n.body || '') : '' }];
       n.activeTab = 0;
       delete n.body;
     }
@@ -1469,13 +1469,20 @@ try {
   });
 } catch(e) { notes = []; }
 
-let noteIdCounter = notes.length > 0 ? Math.max(...notes.map(n => n.id)) + 1 : 1;
+// Unique id for a new note, computed on demand. A bad import, a shared-room
+// merge, or a legacy non-numeric id must never silently break note creation.
+function newNoteId() {
+  const nums = notes.map(n => Number(n.id)).filter(Number.isFinite);
+  let id = nums.length ? Math.max(...nums) + 1 : 1;
+  while (notes.some(n => String(n.id) === String(id))) id++;
+  return id;
+}
 let clipboardNote = null;
 let clipboardCut = false;
 
 if (notes.length === 0) {
   notes.unshift({
-    id: noteIdCounter++,
+    id: newNoteId(),
     title: '🌌 Welcome to Nebula',
     tabs: [
       { title: 'Tips', body: 'Ctrl+N: new note\nCtrl+T: new tab\nCtrl+D: duplicate note\nCtrl+C/V/X: copy/cut/paste note\nEsc: close modals\n\nThe last tab on any note can be locked with a password — a safe place for keys and private info.' },
@@ -1494,6 +1501,9 @@ const ACTIVITY_LIMIT = 200;
 
 function normalizeNote(note) {
   const n = Object.assign({}, note);
+  if (!Array.isArray(n.tabs) || !n.tabs.length) {
+    n.tabs = [{ title: 'Main', body: (Array.isArray(note.tabs) && note.tabs[0] && note.tabs[0].body) || note.body || '' }];
+  }
   if (!Array.isArray(n.labels)) n.labels = [];
   if (!Array.isArray(n.checklist)) n.checklist = [];
   n.checklist = n.checklist.map(it => ({
@@ -1681,7 +1691,7 @@ function hexToRgba(hex, alpha) {
 
 function addNote() {
   const note = {
-    id: noteIdCounter++,
+    id: newNoteId(),
     title: '',
     tabs: [{ title: 'Main', body: '' }],
     activeTab: 0,
@@ -1716,7 +1726,7 @@ function duplicateNote(id) {
   const original = notes.find(n => n.id === id);
   if (!original) return;
   const copy = {
-    id: noteIdCounter++,
+    id: newNoteId(),
     title: original.title + ' (copy)',
     tabs: JSON.parse(JSON.stringify(original.tabs)),
     activeTab: original.activeTab,
@@ -1951,6 +1961,7 @@ document.addEventListener('mouseup', onUp);
 // Shared tab bar — used by canvas cards AND the Trello card back.
 function buildNoteTabs(note, hostEl) {
   if (!hostEl) return;
+  if (!Array.isArray(note.tabs) || !note.tabs.length) note.tabs = [{ title: 'Main', body: '' }];
   const lastIdx = note.tabs.length - 1;
   hostEl.innerHTML = note.tabs.map((t, i) => `
       <div class="note-tab ${i === note.activeTab ? 'active' : ''}" onclick="switchTab(${note.id}, ${i})">
@@ -2012,7 +2023,7 @@ function renderNotes() {
   const area = document.getElementById('notesArea');
   const search = document.getElementById('searchBox').value.toLowerCase();
   const filtered = notes.filter(n => {
-    const text = (n.title + ' ' + n.tabs.map(t => t.body).join(' ')).toLowerCase();
+    const text = ((n.title || '') + ' ' + (Array.isArray(n.tabs) ? n.tabs.map(t => (t && t.body) || '').join(' ') : '')).toLowerCase();
     return text.includes(search);
   });
 
@@ -2150,7 +2161,6 @@ function importNotes(event) {
       const unpacked = unpackImport(JSON.parse(e.target.result));
       if (!unpacked) throw new Error('Invalid format');
       notes = unpacked.notes;
-      noteIdCounter = notes.length > 0 ? Math.max(...notes.map(n => n.id)) + 1 : 1;
       board = migrateBoard(unpacked.board);
       saveNotes();
       renderNotes();
@@ -2209,7 +2219,7 @@ document.addEventListener('keydown', (e) => {
   }
   if (isCtrl && e.key === 'v' && clipboardNote != null && !inInput) {
     e.preventDefault();
-    const newNote = { id: noteIdCounter++, title: clipboardNote.title, tabs: JSON.parse(JSON.stringify(clipboardNote.tabs)), activeTab: 0, color: clipboardNote.color, created: Date.now(), updated: Date.now(), labels: [], due: null, checklist: [], shared: !!clipboardNote.shared };
+    const newNote = { id: newNoteId(), title: clipboardNote.title, tabs: JSON.parse(JSON.stringify(clipboardNote.tabs)), activeTab: 0, color: clipboardNote.color, created: Date.now(), updated: Date.now(), labels: [], due: null, checklist: [], shared: !!clipboardNote.shared };
     notes.unshift(newNote);
     newNote.listId = board.lists[0].id;
     board.lists[0].cardIds.unshift(newNote.id);
@@ -2268,7 +2278,8 @@ function checklistRatio(note) {
 }
 
 function noteMatches(note) {
-  const hay = (note.title + ' ' + note.tabs.map(t => t.title + ' ' + t.body).join(' ')).toLowerCase();
+  const tabText = Array.isArray(note.tabs) ? note.tabs.map(t => ((t && t.title) || '') + ' ' + ((t && t.body) || '')).join(' ') : '';
+  const hay = ((note.title || '') + ' ' + tabText).toLowerCase();
   if (boardSearch && !hay.includes(boardSearch)) return false;
   if (boardLabelFilter && !(Array.isArray(note.labels) ? note.labels : []).includes(boardLabelFilter)) return false;
   return true;
@@ -2458,7 +2469,7 @@ function addCardUi(listId) {
     const title = input.value.trim();
     if (!title) { renderBoard(); return; }
     const note = {
-      id: noteIdCounter++, title: title,
+      id: newNoteId(), title: title,
       tabs: [{ title: 'Main', body: '' }], activeTab: 0,
       color: currentTheme, created: Date.now(), updated: Date.now(),
       labels: [], due: null, checklist: [], shared: false

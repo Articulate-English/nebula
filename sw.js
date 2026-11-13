@@ -2,7 +2,7 @@
 //
 // Bump CACHE_VERSION whenever the app shell changes. The old version's cache is
 // deleted on activate, so a stale index.html can never be served forever.
-const CACHE_VERSION = 'v8';
+const CACHE_VERSION = 'v9';
 const CACHE_NAME = `nebula-${CACHE_VERSION}`;
 
 // Static assets that are safe to cache first (they are content-hashed by name
@@ -67,17 +67,18 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Cache-first for everything else (images, manifests, icons).
+  // Network-first for everything else. Code files (sync-client.js, the vendor
+  // bundle) are NOT content-hashed, so cache-first would pin a returning visitor
+  // to a stale build forever. The cache is the offline fallback.
   event.respondWith(
-    caches.match(request).then(cached => {
-      if (cached) return cached;
-      return fetch(request).then(response => {
-        if (response && response.ok && (request.url.startsWith('http:') || request.url.startsWith('https:'))) {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
-        }
-        return response;
-      });
-    })
+    fetch(request).then(response => {
+      if (response && response.ok) {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
+      }
+      return response;
+    }).catch(() =>
+      caches.match(request).then(cached => cached || caches.match('./index.html'))
+    )
   );
 });
